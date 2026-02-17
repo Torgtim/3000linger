@@ -5,33 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Explorer Adventure</title>
 <style>
-body {
-  margin:0;
-  overflow:hidden;
-  font-family: Arial, sans-serif;
-  background:#222;
-}
-canvas { 
-  display:block; 
-  margin:0 auto; 
-  background:#333;
-}
-#hud {
-  position:absolute;
-  top:10px;
-  left:10px;
-  color:white;
-  font-size:18px;
-}
+body {margin:0; overflow:hidden; font-family:Arial, sans-serif; background:#111;}
+canvas {display:block; margin:0 auto; background:#222;}
+#hud {position:absolute; top:10px; left:10px; color:white; font-size:18px;}
+#message {position:absolute; bottom:10px; left:10px; color:yellow; font-size:20px;}
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
-<div id="hud">Health: 100 | Ammo: 0 | Bosses: 0</div>
-
+<div id="hud"></div>
+<div id="message"></div>
 <script>
 // =================================================
-// GLOBAL VARS
+// GLOBAL VARIABLES
 // =================================================
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -44,19 +30,30 @@ const tileSize = 50;
 let mapCols = Math.floor(width / tileSize);
 let mapRows = Math.floor(height / tileSize);
 
-// Player
-let player = { x:2, y:2, size:40, color:'#0f0', health:100, ammo:0 };
+let frame = 0;
+let round = 1;
 
-// Items
+// =================================================
+// PLAYER
+// =================================================
+let player = {x:2, y:2, size:40, color:'#0f0', health:100, ammo:0};
+
+// =================================================
+// ITEMS
+// =================================================
 let weapons = [{x:5, y:5, type:'Pistol'}, {x:10, y:8, type:'Shotgun'}];
 let bosses = [{x:15, y:10, health:200, defeated:false}];
 
-// Input
-let keys = {};
-window.addEventListener('keydown', e=>keys[e.key]=true);
-window.addEventListener('keyup', e=>keys[e.key]=false);
+// =================================================
+// INPUT
+// =================================================
+let keys={};
+window.addEventListener('keydown',e=>keys[e.key]=true);
+window.addEventListener('keyup',e=>keys[e.key]=false);
 
-// Draw map grid
+// =================================================
+// DRAW FUNCTIONS
+// =================================================
 function drawMap(){
   ctx.strokeStyle='#555';
   for(let i=0;i<mapCols;i++){
@@ -65,64 +62,99 @@ function drawMap(){
     }
   }
 }
-
-// Draw player
 function drawPlayer(){
-  ctx.fillStyle = player.color;
+  ctx.fillStyle=player.color;
   ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);
 }
-
-// Draw weapons
 function drawWeapons(){
   weapons.forEach(w=>{
     ctx.fillStyle='yellow';
-    ctx.fillRect(w.x*tileSize+15, w.y*tileSize+15,20,20);
+    ctx.fillRect(w.x*tileSize+15, w.y*tileSize+15, 20, 20);
   });
 }
-
-// Draw bosses
 function drawBosses(){
   bosses.forEach(b=>{
     if(!b.defeated){
       ctx.fillStyle='red';
-      ctx.fillRect(b.x*tileSize+5, b.y*tileSize+5,40,40);
+      ctx.fillRect(b.x*tileSize+5, b.y*tileSize+5, 40, 40);
     }
   });
 }
 
-// Update
-function update(){
+// =================================================
+// UPDATE FUNCTIONS
+// =================================================
+function updatePlayer(){
   if(keys['ArrowUp'] && player.y>0) player.y--;
   if(keys['ArrowDown'] && player.y<mapRows-1) player.y++;
   if(keys['ArrowLeft'] && player.x>0) player.x--;
   if(keys['ArrowRight'] && player.x<mapCols-1) player.x++;
 
-  // Check weapon pickups
+  // Pick up weapons
   weapons.forEach((w,i)=>{
     if(player.x===w.x && player.y===w.y){
       player.ammo++;
       weapons.splice(i,1);
+      showMessage(`Picked up ${w.type}!`);
     }
   });
 
-  // Check boss encounter
+  // Boss encounters
   bosses.forEach(b=>{
     if(!b.defeated && player.x===b.x && player.y===b.y){
       if(player.ammo>0){
         player.ammo--;
         b.health-=50;
-        if(b.health<=0) b.defeated=true;
+        showMessage('You hit the boss!');
+        if(b.health<=0){
+          b.defeated=true;
+          showMessage('Boss defeated!');
+        }
       } else {
         player.health-=10;
+        showMessage('Ouch! No ammo!');
+        if(player.health<=0){
+          showMessage('You died! Game Over.');
+        }
       }
     }
   });
-
-  // Update HUD
-  document.getElementById('hud').innerText=`Health: ${player.health} | Ammo: ${player.ammo} | Bosses: ${bosses.filter(b=>!b.defeated).length}`;
 }
 
-// Draw everything
+// =================================================
+// HUD & MESSAGES
+// =================================================
+function updateHUD(){
+  let bossesLeft = bosses.filter(b=>!b.defeated).length;
+  document.getElementById('hud').innerText=`Health: ${player.health} | Ammo: ${player.ammo} | Bosses: ${bossesLeft} | Round: ${round}`;
+}
+function showMessage(msg){
+  document.getElementById('message').innerText=msg;
+  setTimeout(()=>{document.getElementById('message').innerText='';},2000);
+}
+
+// =================================================
+// ROUND SYSTEM
+// =================================================
+function checkRound(){
+  if(bosses.every(b=>b.defeated)){
+    round++;
+    // Spawn new bosses & weapons
+    bosses = [];
+    for(let i=0;i<round;i++){
+      bosses.push({x:Math.floor(Math.random()*mapCols), y:Math.floor(Math.random()*mapRows), health:100+round*50, defeated:false});
+    }
+    weapons = [];
+    for(let i=0;i<round+1;i++){
+      weapons.push({x:Math.floor(Math.random()*mapCols), y:Math.floor(Math.random()*mapRows), type:'Pistol'});
+    }
+    showMessage(`Round ${round} started!`);
+  }
+}
+
+// =================================================
+// GAME LOOP
+// =================================================
 function draw(){
   ctx.clearRect(0,0,width,height);
   drawMap();
@@ -130,12 +162,15 @@ function draw(){
   drawBosses();
   drawPlayer();
 }
-
-// Game loop
 function loop(){
-  update();
+  frame++;
+  updatePlayer();
+  updateHUD();
+  checkRound();
   draw();
-  requestAnimationFrame(loop);
+  if(player.health>0){
+    requestAnimationFrame(loop);
+  }
 }
 
 loop();
