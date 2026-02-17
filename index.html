@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Explorer Adventure 3000</title>
+<title>Explorer Adventure Horizontal</title>
 <style>
-body { margin:0; overflow:hidden; font-family:Arial, sans-serif; background:#111;}
-canvas { display:block; margin:0 auto; background:#222;}
-#hud { position:absolute; top:10px; left:10px; color:white; font-size:18px;}
-#message { position:absolute; bottom:10px; left:10px; color:yellow; font-size:20px;}
+body { margin:0; overflow:hidden; font-family:Arial, sans-serif; background:#111; }
+canvas { display:block; margin:0 auto; background:#222; }
+#hud { position:absolute; top:10px; left:10px; color:white; font-size:18px; }
+#message { position:absolute; bottom:10px; left:10px; color:yellow; font-size:20px; }
 </style>
 </head>
 <body>
@@ -26,9 +26,10 @@ let height = window.innerHeight;
 canvas.width = width;
 canvas.height = height;
 
-const tileSize = 50;
-let mapCols = Math.floor(width / tileSize);
-let mapRows = Math.floor(height / tileSize);
+// Horizontal grid: 40 cols × 20 rows
+const tileCols = 40;
+const tileRows = 20;
+const tileSize = Math.floor(width/tileCols);
 
 let frame = 0;
 let round = 1;
@@ -36,76 +37,77 @@ let round = 1;
 // =================================================
 // PLAYER
 // =================================================
-let player = {x:2, y:2, size:40, color:'#0f0', health:100, ammo:0, speed:1};
+let player = { x:2, y:2, size:tileSize-10, color:'#0f0', health:100, ammo:0, speed:1 };
 
 // =================================================
 // ITEMS
 // =================================================
 let weapons = [
-  {x:5, y:5, type:'Pistol'},
-  {x:10, y:8, type:'Shotgun'},
-  {x:3, y:12, type:'Rifle'}
+  { x:5, y:5, type:'Pistol' },
+  { x:15, y:8, type:'Shotgun' },
+  { x:22, y:12, type:'Rifle' }
 ];
+
 let bosses = [
-  {x:15, y:10, health:200, defeated:false, color:'#f00'}
+  { x:35, y:10, health:200, defeated:false, color:'#f00' }
 ];
+
 let particles = [];
 
 // =================================================
 // INPUT
 // =================================================
-let keys={};
-window.addEventListener('keydown',e=>keys[e.key]=true);
-window.addEventListener('keyup',e=>keys[e.key]=false);
+let keys = {};
+window.addEventListener('keydown', e => keys[e.key]=true);
+window.addEventListener('keyup', e => keys[e.key]=false);
 
-let touchX=null;
-canvas.addEventListener('touchstart',e=>{ touchX=e.touches[0].clientX; });
-canvas.addEventListener('touchmove',e=>{
+let touchX = null;
+canvas.addEventListener('touchstart', e => { touchX=e.touches[0].clientX; });
+canvas.addEventListener('touchmove', e => {
   let dx = e.touches[0].clientX - touchX;
-  player.x += dx / tileSize; // convert pixel move to grid move
+  player.x += dx / tileSize;
   if(player.x<0) player.x=0;
-  if(player.x>mapCols-1) player.x=mapCols-1;
+  if(player.x>tileCols-1) player.x=tileCols-1;
   touchX = e.touches[0].clientX;
 });
 
 // =================================================
 // DRAW FUNCTIONS
 // =================================================
-function drawMap(){
+function drawMap() {
   ctx.strokeStyle='#555';
-  for(let i=0;i<mapCols;i++){
-    for(let j=0;j<mapRows;j++){
-      ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);
+  for(let i=0;i<tileCols;i++){
+    for(let j=0;j<tileRows;j++){
+      ctx.strokeRect(i*tileSize, j*tileSize, tileSize, tileSize);
     }
   }
 }
 
-function drawPlayer(){
-  ctx.fillStyle=player.color;
+function drawPlayer() {
+  ctx.fillStyle = player.color;
   ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);
 }
 
-function drawWeapons(){
+function drawWeapons() {
   weapons.forEach(w=>{
     ctx.fillStyle='yellow';
-    ctx.fillRect(w.x*tileSize+15, w.y*tileSize+15,20,20);
+    ctx.fillRect(w.x*tileSize+tileSize/4, w.y*tileSize+tileSize/4, tileSize/2, tileSize/2);
   });
 }
 
-function drawBosses(){
+function drawBosses() {
   bosses.forEach(b=>{
     if(!b.defeated){
       ctx.fillStyle=b.color;
-      ctx.fillRect(b.x*tileSize+5, b.y*tileSize+5,40,40);
-      // Draw boss health bar
+      ctx.fillRect(b.x*tileSize+5, b.y*tileSize+5, tileSize-10, tileSize-10);
       ctx.fillStyle='green';
-      let barWidth = 40*(b.health/200);
+      let barWidth = tileSize-10*(b.health/200);
       ctx.fillRect(b.x*tileSize+5, b.y*tileSize, barWidth, 5);
     }
   });
 }
 
-function drawParticles(){
+function drawParticles() {
   particles.forEach((p,i)=>{
     ctx.fillStyle=p.color;
     ctx.fillRect(p.x, p.y, p.size, p.size);
@@ -119,30 +121,28 @@ function drawParticles(){
 // =================================================
 // UPDATE FUNCTIONS
 // =================================================
-function updatePlayer(){
+function updatePlayer() {
   if(keys['ArrowUp'] && player.y>0) player.y-=player.speed;
-  if(keys['ArrowDown'] && player.y<mapRows-1) player.y+=player.speed;
+  if(keys['ArrowDown'] && player.y<tileRows-1) player.y+=player.speed;
   if(keys['ArrowLeft'] && player.x>0) player.x-=player.speed;
-  if(keys['ArrowRight'] && player.x<mapCols-1) player.x+=player.speed;
+  if(keys['ArrowRight'] && player.x<tileCols-1) player.x+=player.speed;
 
-  // Pick up weapons
   weapons.forEach((w,i)=>{
     if(Math.floor(player.x)===w.x && Math.floor(player.y)===w.y){
       player.ammo++;
       weapons.splice(i,1);
       showMessage(`Picked up ${w.type}!`);
-      spawnParticles(player.x*tileSize+20, player.y*tileSize+20, 10, 'yellow');
+      spawnParticles(player.x*tileSize+tileSize/2, player.y*tileSize+tileSize/2, 10, 'yellow');
     }
   });
 
-  // Boss encounters
   bosses.forEach(b=>{
     if(!b.defeated && Math.floor(player.x)===b.x && Math.floor(player.y)===b.y){
       if(player.ammo>0){
         player.ammo--;
         b.health-=50;
         showMessage('Hit the boss!');
-        spawnParticles(b.x*tileSize+20, b.y*tileSize+20, 15, 'red');
+        spawnParticles(b.x*tileSize+tileSize/2, b.y*tileSize+tileSize/2, 15, 'red');
         if(b.health<=0){
           b.defeated=true;
           showMessage('Boss defeated!');
@@ -150,7 +150,7 @@ function updatePlayer(){
       } else {
         player.health-=10;
         showMessage('Ouch! No ammo!');
-        spawnParticles(player.x*tileSize+20, player.y*tileSize+20, 10, 'white');
+        spawnParticles(player.x*tileSize+tileSize/2, player.y*tileSize+tileSize/2, 10, 'white');
         if(player.health<=0){
           showMessage('You died! Game Over.');
         }
@@ -194,14 +194,13 @@ function showMessage(msg){
 function checkRound(){
   if(bosses.every(b=>b.defeated)){
     round++;
-    // Spawn new bosses & weapons
     bosses = [];
     for(let i=0;i<round;i++){
-      bosses.push({x:Math.floor(Math.random()*mapCols), y:Math.floor(Math.random()*mapRows), health:100+round*50, defeated:false, color:'#f00'});
+      bosses.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), health:100+round*50, defeated:false, color:'#f00'});
     }
     weapons = [];
     for(let i=0;i<round+1;i++){
-      weapons.push({x:Math.floor(Math.random()*mapCols), y:Math.floor(Math.random()*mapRows), type:'Pistol'});
+      weapons.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), type:'Pistol'});
     }
     showMessage(`Round ${round} started!`);
   }
@@ -218,15 +217,14 @@ function draw(){
   drawPlayer();
   drawParticles();
 }
+
 function loop(){
   frame++;
   updatePlayer();
   updateHUD();
   checkRound();
   draw();
-  if(player.health>0){
-    requestAnimationFrame(loop);
-  }
+  if(player.health>0) requestAnimationFrame(loop);
 }
 
 loop();
