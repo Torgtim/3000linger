@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Explorer Adventure Kaos</title>
+<title>Explorer Adventure Kaos med Atack</title>
 <style>
 body { margin:0; overflow:hidden; font-family:Arial, sans-serif; background:#111; }
 canvas { display:block; margin:0 auto; background:#222; }
@@ -29,8 +29,9 @@ const tileRows = 40;
 const tileSize = Math.floor(width/tileCols);
 
 let frame=0;
-let player = {x:10, y:38, size:tileSize-10, color:'#0f0', health:100, ammo:10, speed:1};
-let particles=[];
+
+// ================= PLAYER =================
+let player = {x:10, y:38, size:tileSize-10, color:'#0f0', health:100, ammo:10, speed:1, attacking:false};
 
 // ================= WEAPONS =================
 let weapons=[];
@@ -50,6 +51,9 @@ for(let i=0;i<10;i++){
   minibosses.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), health:50, color:'#ffa500', defeated:false, dirX:Math.random()>0.5?1:-1, dirY:Math.random()>0.5?1:-1});
 }
 
+// ================= PARTICLES =================
+let particles=[];
+
 // ================= INPUT =================
 let keys={};
 window.addEventListener('keydown',e=>keys[e.key]=true);
@@ -58,34 +62,42 @@ let spacePressed=false;
 window.addEventListener('keydown',e=>{if(e.code==='Space') spacePressed=true;});
 window.addEventListener('keyup',e=>{if(e.code==='Space') spacePressed=false;});
 
-// ================= DRAW =================
-function drawMap(){ctx.strokeStyle='#555';for(let i=0;i<tileCols;i++){for(let j=0;j<tileRows;j++){ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);}}}
-function drawPlayer(){ctx.fillStyle=player.color; ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);}
+// ================= DRAW FUNCTIONS =================
+function drawMap(){
+  ctx.strokeStyle='#555';
+  for(let i=0;i<tileCols;i++){for(let j=0;j<tileRows;j++){ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);}}
+}
+function drawPlayer(){
+  ctx.fillStyle=player.color;
+  ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);
+}
 function drawWeapons(){weapons.forEach(w=>{ctx.fillStyle='yellow'; ctx.fillRect(w.x*tileSize+tileSize/4, w.y*tileSize+tileSize/4, tileSize/2, tileSize/2);});}
 function drawBosses(){bosses.forEach(b=>{if(!b.defeated){ctx.fillStyle=b.color; ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);}});}
 function drawMinibosses(){minibosses.forEach(b=>{if(!b.defeated){ctx.fillStyle=b.color; ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);}});}
 function drawParticles(){particles.forEach((p,i)=>{ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);p.x+=p.speedX;p.y+=p.speedY;p.life--; if(p.life<=0) particles.splice(i,1);});}
 
-// ================= PARTICLES =================
+// ================= PARTICLE SYSTEM =================
 function spawnParticles(x,y,count,color){for(let i=0;i<count;i++){particles.push({x:x,y:y,size:Math.random()*5+2,color:color,speedX:(Math.random()-0.5)*2,speedY:(Math.random()-0.5)*2,life:30+Math.random()*30});}}
 
 // ================= PLAYER UPDATE =================
 function updatePlayer(){
+  // Bevegelse
   if(keys['ArrowUp'] && player.y>0) player.y-=player.speed;
   if(keys['ArrowDown'] && player.y<tileRows-1) player.y+=player.speed;
   if(keys['ArrowLeft'] && player.x>0) player.x-=player.speed;
   if(keys['ArrowRight'] && player.x<tileCols-1) player.x+=player.speed;
 
-  // Pick weapons
+  // Plukk opp våpen
   weapons.forEach((w,i)=>{if(Math.floor(player.x)===w.x && Math.floor(player.y)===w.y){player.ammo+=w.ammo; weapons.splice(i,1); showMessage('Picked ammo!'); spawnParticles(player.x*tileSize,player.y*tileSize,10,'yellow');}});
 
-  // Attack
+  // Angrep
   if(spacePressed){
+    player.attacking=true;
     bosses.forEach(b=>{if(!b.defeated && Math.abs(player.x-b.x)<=1 && Math.abs(player.y-b.y)<=1){b.health-=25;spawnParticles(b.x*tileSize,b.y*tileSize,10,'red'); if(b.health<=0){b.defeated=true; showMessage('Boss defeated!');}}});
     minibosses.forEach(b=>{if(!b.defeated && Math.abs(player.x-b.x)<=1 && Math.abs(player.y-b.y)<=1){b.health-=25;spawnParticles(b.x*tileSize,b.y*tileSize,10,'orange'); if(b.health<=0){b.defeated=true; showMessage('Miniboss defeated!');}}});
-  }
+  } else player.attacking=false;
 
-  // Move minibosses randomly
+  // Beveg minibosses
   minibosses.forEach(b=>{if(!b.defeated){b.x+=0.05*b.dirX; b.y+=0.05*b.dirY; if(b.x<0||b.x>tileCols-1)b.dirX*=-1;if(b.y<0||b.y>tileRows-1)b.dirY*=-1;}});
 }
 
@@ -94,10 +106,24 @@ function updateHUD(){document.getElementById('hud').innerText=`Health:${player.h
 function showMessage(msg){document.getElementById('message').innerText=msg; setTimeout(()=>{document.getElementById('message').innerText='';},1500);}
 
 // ================= DRAW =================
-function draw(){ctx.clearRect(0,0,width,height);drawMap();drawWeapons();drawBosses();drawMinibosses();drawPlayer();drawParticles();}
+function draw(){
+  ctx.clearRect(0,0,width,height);
+  drawMap();
+  drawWeapons();
+  drawBosses();
+  drawMinibosses();
+  drawPlayer();
+  drawParticles();
+}
 
-// ================= LOOP =================
-function loop(){frame++;updatePlayer();updateHUD();draw();requestAnimationFrame(loop);}
+// ================= GAME LOOP =================
+function loop(){
+  frame++;
+  updatePlayer();
+  updateHUD();
+  draw();
+  requestAnimationFrame(loop);
+}
 loop();
 </script>
 </body>
