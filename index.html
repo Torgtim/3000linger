@@ -3,18 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Explorer Adventure Kaos med Atack</title>
+<title>Explorer Adventure Kaos Mobile</title>
 <style>
-body { margin:0; overflow:hidden; font-family:Arial, sans-serif; background:#111; }
+body { margin:0; overflow:hidden; background:#111; font-family:Arial; touch-action: none; }
 canvas { display:block; margin:0 auto; background:#222; }
 #hud { position:absolute; top:10px; left:10px; color:white; font-size:18px; }
-#message { position:absolute; bottom:10px; left:10px; color:yellow; font-size:20px; }
+#message { position:absolute; bottom:80px; left:10px; color:yellow; font-size:20px; }
+#joystick { position:absolute; bottom:10px; left:10px; width:100px; height:100px; background:rgba(255,255,255,0.1); border-radius:50%; touch-action:none; }
+#stick { position:absolute; left:25px; top:25px; width:50px; height:50px; background:rgba(255,255,255,0.5); border-radius:50%; }
+#shootBtn { position:absolute; bottom:10px; right:10px; width:80px; height:80px; background:red; border-radius:50%; opacity:0.6; }
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
 <div id="hud"></div>
 <div id="message"></div>
+<div id="joystick"><div id="stick"></div></div>
+<div id="shootBtn"></div>
 <script>
 // ================= GLOBAL =================
 const canvas = document.getElementById('gameCanvas');
@@ -31,7 +36,7 @@ const tileSize = Math.floor(width/tileCols);
 let frame=0;
 
 // ================= PLAYER =================
-let player = {x:10, y:38, size:tileSize-10, color:'#0f0', health:100, ammo:10, speed:1, attacking:false};
+let player = {x:10, y:38, size:tileSize-10, color:'#0f0', health:100, ammo:10, speed:0.2, attacking:false};
 
 // ================= WEAPONS =================
 let weapons=[];
@@ -54,50 +59,75 @@ for(let i=0;i<10;i++){
 // ================= PARTICLES =================
 let particles=[];
 
-// ================= INPUT =================
-let keys={};
-window.addEventListener('keydown',e=>keys[e.key]=true);
-window.addEventListener('keyup',e=>keys[e.key]=false);
-let spacePressed=false;
-window.addEventListener('keydown',e=>{if(e.code==='Space') spacePressed=true;});
-window.addEventListener('keyup',e=>{if(e.code==='Space') spacePressed=false;});
+// ================= TOUCH / JOYSTICK =================
+let stick = document.getElementById('stick');
+let joystick = document.getElementById('joystick');
+let shootBtn = document.getElementById('shootBtn');
+
+let moveX=0, moveY=0;
+let attacking=false;
+
+function handleJoystickStart(e){
+  e.preventDefault();
+}
+function handleJoystickMove(e){
+  e.preventDefault();
+  let touch = e.touches[0];
+  let rect = joystick.getBoundingClientRect();
+  let dx = touch.clientX - (rect.left + rect.width/2);
+  let dy = touch.clientY - (rect.top + rect.height/2);
+  let dist = Math.min(Math.sqrt(dx*dx + dy*dy), rect.width/2);
+  let angle = Math.atan2(dy, dx);
+  moveX = Math.cos(angle)*(dist/(rect.width/2));
+  moveY = Math.sin(angle)*(dist/(rect.height/2));
+  stick.style.left = (rect.width/2 - stick.offsetWidth/2 + dx/2)+'px';
+  stick.style.top = (rect.height/2 - stick.offsetHeight/2 + dy/2)+'px';
+}
+function handleJoystickEnd(e){
+  e.preventDefault();
+  moveX=0; moveY=0;
+  stick.style.left = '25px';
+  stick.style.top = '25px';
+}
+
+joystick.addEventListener('touchstart', handleJoystickStart);
+joystick.addEventListener('touchmove', handleJoystickMove);
+joystick.addEventListener('touchend', handleJoystickEnd);
+
+// ================= SHOOT BUTTON =================
+shootBtn.addEventListener('touchstart',()=>{attacking=true;});
+shootBtn.addEventListener('touchend',()=>{attacking=false;});
 
 // ================= DRAW FUNCTIONS =================
-function drawMap(){
-  ctx.strokeStyle='#555';
-  for(let i=0;i<tileCols;i++){for(let j=0;j<tileRows;j++){ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);}}
-}
-function drawPlayer(){
-  ctx.fillStyle=player.color;
-  ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);
-}
+function drawMap(){ctx.strokeStyle='#555';for(let i=0;i<tileCols;i++){for(let j=0;j<tileRows;j++){ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);}}}
+function drawPlayer(){ctx.fillStyle=player.color; ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);}
 function drawWeapons(){weapons.forEach(w=>{ctx.fillStyle='yellow'; ctx.fillRect(w.x*tileSize+tileSize/4, w.y*tileSize+tileSize/4, tileSize/2, tileSize/2);});}
 function drawBosses(){bosses.forEach(b=>{if(!b.defeated){ctx.fillStyle=b.color; ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);}});}
 function drawMinibosses(){minibosses.forEach(b=>{if(!b.defeated){ctx.fillStyle=b.color; ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);}});}
 function drawParticles(){particles.forEach((p,i)=>{ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);p.x+=p.speedX;p.y+=p.speedY;p.life--; if(p.life<=0) particles.splice(i,1);});}
 
-// ================= PARTICLE SYSTEM =================
+// ================= PARTICLES =================
 function spawnParticles(x,y,count,color){for(let i=0;i<count;i++){particles.push({x:x,y:y,size:Math.random()*5+2,color:color,speedX:(Math.random()-0.5)*2,speedY:(Math.random()-0.5)*2,life:30+Math.random()*30});}}
 
 // ================= PLAYER UPDATE =================
 function updatePlayer(){
-  // Bevegelse
-  if(keys['ArrowUp'] && player.y>0) player.y-=player.speed;
-  if(keys['ArrowDown'] && player.y<tileRows-1) player.y+=player.speed;
-  if(keys['ArrowLeft'] && player.x>0) player.x-=player.speed;
-  if(keys['ArrowRight'] && player.x<tileCols-1) player.x+=player.speed;
+  player.x += moveX;
+  player.y += moveY;
+  if(player.x<0) player.x=0;
+  if(player.x>tileCols-1) player.x=tileCols-1;
+  if(player.y<0) player.y=0;
+  if(player.y>tileRows-1) player.y=tileRows-1;
 
-  // Plukk opp våpen
+  // Pick weapons
   weapons.forEach((w,i)=>{if(Math.floor(player.x)===w.x && Math.floor(player.y)===w.y){player.ammo+=w.ammo; weapons.splice(i,1); showMessage('Picked ammo!'); spawnParticles(player.x*tileSize,player.y*tileSize,10,'yellow');}});
 
-  // Angrep
-  if(spacePressed){
-    player.attacking=true;
+  // Attack
+  if(attacking){
     bosses.forEach(b=>{if(!b.defeated && Math.abs(player.x-b.x)<=1 && Math.abs(player.y-b.y)<=1){b.health-=25;spawnParticles(b.x*tileSize,b.y*tileSize,10,'red'); if(b.health<=0){b.defeated=true; showMessage('Boss defeated!');}}});
     minibosses.forEach(b=>{if(!b.defeated && Math.abs(player.x-b.x)<=1 && Math.abs(player.y-b.y)<=1){b.health-=25;spawnParticles(b.x*tileSize,b.y*tileSize,10,'orange'); if(b.health<=0){b.defeated=true; showMessage('Miniboss defeated!');}}});
-  } else player.attacking=false;
+  }
 
-  // Beveg minibosses
+  // Move minibosses
   minibosses.forEach(b=>{if(!b.defeated){b.x+=0.05*b.dirX; b.y+=0.05*b.dirY; if(b.x<0||b.x>tileCols-1)b.dirX*=-1;if(b.y<0||b.y>tileRows-1)b.dirY*=-1;}});
 }
 
@@ -116,7 +146,7 @@ function draw(){
   drawParticles();
 }
 
-// ================= GAME LOOP =================
+// ================= LOOP =================
 function loop(){
   frame++;
   updatePlayer();
