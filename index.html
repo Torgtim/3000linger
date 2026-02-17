@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Explorer Adventure Horizontal</title>
+<title>Explorer Adventure Horizontal Massive</title>
 <style>
 body { margin:0; overflow:hidden; font-family:Arial, sans-serif; background:#111; }
 canvas { display:block; margin:0 auto; background:#222; }
@@ -17,8 +17,10 @@ canvas { display:block; margin:0 auto; background:#222; }
 <div id="message"></div>
 <script>
 // =================================================
-// GLOBAL VARIABLES
+// MASSIVE EXPLORER ADVENTURE START
 // =================================================
+
+// === GLOBAL VARIABLES ===
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let width = window.innerWidth;
@@ -26,91 +28,121 @@ let height = window.innerHeight;
 canvas.width = width;
 canvas.height = height;
 
-// Horizontal grid: 40 cols × 20 rows
+// Horizontal map: 40 cols × 20 rows
 const tileCols = 40;
 const tileRows = 20;
 const tileSize = Math.floor(width/tileCols);
-
 let frame = 0;
 let round = 1;
 
-// =================================================
-// PLAYER
-// =================================================
+// === PLAYER ===
 let player = { x:2, y:2, size:tileSize-10, color:'#0f0', health:100, ammo:0, speed:1 };
 
-// =================================================
-// ITEMS
-// =================================================
-let weapons = [
-  { x:5, y:5, type:'Pistol' },
-  { x:15, y:8, type:'Shotgun' },
-  { x:22, y:12, type:'Rifle' }
-];
+// === WEAPONS ===
+let weapons = [];
+for(let i=0;i<50;i++){
+  weapons.push({
+    x:Math.floor(Math.random()*tileCols),
+    y:Math.floor(Math.random()*tileRows),
+    type:['Pistol','Shotgun','Rifle','LaserGun','Grenade'][Math.floor(Math.random()*5)],
+    ammo:Math.floor(Math.random()*5+1)
+  });
+}
 
-let bosses = [
-  { x:35, y:10, health:200, defeated:false, color:'#f00' }
-];
+// === BOSSES ===
+let bosses = [];
+for(let i=0;i<20;i++){
+  bosses.push({
+    x:Math.floor(Math.random()*tileCols),
+    y:Math.floor(Math.random()*tileRows),
+    health:100+Math.floor(Math.random()*200),
+    defeated:false,
+    color:'#'+Math.floor(Math.random()*16777215).toString(16)
+  });
+}
 
+// === MINIBOSSES ===
+let minibosses = [];
+for(let i=0;i<30;i++){
+  minibosses.push({
+    x:Math.floor(Math.random()*tileCols),
+    y:Math.floor(Math.random()*tileRows),
+    health:50+Math.floor(Math.random()*100),
+    defeated:false,
+    color:'#'+Math.floor(Math.random()*16777215).toString(16),
+    dirX:Math.random()>0.5?1:-1,
+    dirY:Math.random()>0.5?1:-1
+  });
+}
+
+// === PARTICLES ===
 let particles = [];
 
-// =================================================
-// INPUT
-// =================================================
+// === INPUT ===
 let keys = {};
-window.addEventListener('keydown', e => keys[e.key]=true);
-window.addEventListener('keyup', e => keys[e.key]=false);
+window.addEventListener('keydown', e=>keys[e.key]=true);
+window.addEventListener('keyup', e=>keys[e.key]=false);
 
-let touchX = null;
-canvas.addEventListener('touchstart', e => { touchX=e.touches[0].clientX; });
-canvas.addEventListener('touchmove', e => {
+let touchX=null;
+canvas.addEventListener('touchstart', e=>touchX=e.touches[0].clientX);
+canvas.addEventListener('touchmove', e=>{
   let dx = e.touches[0].clientX - touchX;
-  player.x += dx / tileSize;
+  player.x += dx/tileSize;
   if(player.x<0) player.x=0;
   if(player.x>tileCols-1) player.x=tileCols-1;
   touchX = e.touches[0].clientX;
 });
 
-// =================================================
-// DRAW FUNCTIONS
-// =================================================
-function drawMap() {
+// === DRAW FUNCTIONS ===
+function drawMap(){
   ctx.strokeStyle='#555';
   for(let i=0;i<tileCols;i++){
     for(let j=0;j<tileRows;j++){
-      ctx.strokeRect(i*tileSize, j*tileSize, tileSize, tileSize);
+      ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);
     }
   }
 }
 
-function drawPlayer() {
-  ctx.fillStyle = player.color;
+function drawPlayer(){
+  ctx.fillStyle=player.color;
   ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);
 }
 
-function drawWeapons() {
+function drawWeapons(){
   weapons.forEach(w=>{
     ctx.fillStyle='yellow';
-    ctx.fillRect(w.x*tileSize+tileSize/4, w.y*tileSize+tileSize/4, tileSize/2, tileSize/2);
+    ctx.fillRect(w.x*tileSize+tileSize/4,w.y*tileSize+tileSize/4,tileSize/2,tileSize/2);
   });
 }
 
-function drawBosses() {
+function drawBosses(){
   bosses.forEach(b=>{
     if(!b.defeated){
       ctx.fillStyle=b.color;
-      ctx.fillRect(b.x*tileSize+5, b.y*tileSize+5, tileSize-10, tileSize-10);
+      ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);
       ctx.fillStyle='green';
-      let barWidth = tileSize-10*(b.health/200);
-      ctx.fillRect(b.x*tileSize+5, b.y*tileSize, barWidth, 5);
+      let barWidth = (tileSize-10)*(b.health/200);
+      ctx.fillRect(b.x*tileSize+5,b.y*tileSize,barWidth,5);
     }
   });
 }
 
-function drawParticles() {
+function drawMinibosses(){
+  minibosses.forEach(b=>{
+    if(!b.defeated){
+      ctx.fillStyle=b.color;
+      ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);
+      ctx.fillStyle='orange';
+      let barWidth = (tileSize-10)*(b.health/150);
+      ctx.fillRect(b.x*tileSize+5,b.y*tileSize,barWidth,3);
+    }
+  });
+}
+
+function drawParticles(){
   particles.forEach((p,i)=>{
     ctx.fillStyle=p.color;
-    ctx.fillRect(p.x, p.y, p.size, p.size);
+    ctx.fillRect(p.x,p.y,p.size,p.size);
     p.y -= p.speedY;
     p.x += p.speedX;
     p.life--;
@@ -118,57 +150,66 @@ function drawParticles() {
   });
 }
 
-// =================================================
-// UPDATE FUNCTIONS
-// =================================================
-function updatePlayer() {
+// === UPDATE FUNCTIONS ===
+function updatePlayer(){
   if(keys['ArrowUp'] && player.y>0) player.y-=player.speed;
   if(keys['ArrowDown'] && player.y<tileRows-1) player.y+=player.speed;
   if(keys['ArrowLeft'] && player.x>0) player.x-=player.speed;
   if(keys['ArrowRight'] && player.x<tileCols-1) player.x+=player.speed;
 
+  // Pick weapons
   weapons.forEach((w,i)=>{
     if(Math.floor(player.x)===w.x && Math.floor(player.y)===w.y){
-      player.ammo++;
+      player.ammo+=w.ammo;
       weapons.splice(i,1);
-      showMessage(`Picked up ${w.type}!`);
-      spawnParticles(player.x*tileSize+tileSize/2, player.y*tileSize+tileSize/2, 10, 'yellow');
+      showMessage(`Picked ${w.type} x${w.ammo}!`);
+      spawnParticles(player.x*tileSize+tileSize/2,player.y*tileSize+tileSize/2,10,'yellow');
     }
   });
 
+  // Boss collision
   bosses.forEach(b=>{
     if(!b.defeated && Math.floor(player.x)===b.x && Math.floor(player.y)===b.y){
       if(player.ammo>0){
         player.ammo--;
         b.health-=50;
-        showMessage('Hit the boss!');
-        spawnParticles(b.x*tileSize+tileSize/2, b.y*tileSize+tileSize/2, 15, 'red');
-        if(b.health<=0){
-          b.defeated=true;
-          showMessage('Boss defeated!');
-        }
+        showMessage('Hit Boss!');
+        spawnParticles(b.x*tileSize+tileSize/2,b.y*tileSize+tileSize/2,15,'red');
+        if(b.health<=0){b.defeated=true; showMessage('Boss defeated!');}
       } else {
         player.health-=10;
-        showMessage('Ouch! No ammo!');
-        spawnParticles(player.x*tileSize+tileSize/2, player.y*tileSize+tileSize/2, 10, 'white');
-        if(player.health<=0){
-          showMessage('You died! Game Over.');
-        }
+        showMessage('No ammo!');
+        spawnParticles(player.x*tileSize+tileSize/2,player.y*tileSize+tileSize/2,10,'white');
+        if(player.health<=0) showMessage('You died! Game Over.');
+      }
+    }
+  });
+
+  // Miniboss collision
+  minibosses.forEach(b=>{
+    b.x += 0.05*b.dirX;
+    b.y += 0.05*b.dirY;
+    if(b.x<0 || b.x>tileCols-1) b.dirX*=-1;
+    if(b.y<0 || b.y>tileRows-1) b.dirY*=-1;
+    if(!b.defeated && Math.floor(player.x)===Math.floor(b.x) && Math.floor(player.y)===Math.floor(b.y)){
+      if(player.ammo>0){
+        player.ammo--;
+        b.health-=25;
+        spawnParticles(b.x*tileSize+tileSize/2,b.y*tileSize+tileSize/2,8,'orange');
+        if(b.health<=0){b.defeated=true; showMessage('Miniboss defeated!');}
+      } else {
+        player.health-=5;
+        spawnParticles(player.x*tileSize+tileSize/2,player.y*tileSize+tileSize/2,5,'white');
       }
     }
   });
 }
 
-// =================================================
-// PARTICLE SYSTEM
-// =================================================
-function spawnParticles(x, y, count, color){
+// === PARTICLE SYSTEM ===
+function spawnParticles(x,y,count,color){
   for(let i=0;i<count;i++){
     particles.push({
-      x:x,
-      y:y,
-      size:Math.random()*5+2,
-      color:color,
+      x:x, y:y, size:Math.random()*5+2, color:color,
       speedX:(Math.random()-0.5)*2,
       speedY:Math.random()*2+1,
       life:30+Math.random()*30
@@ -176,44 +217,55 @@ function spawnParticles(x, y, count, color){
   }
 }
 
-// =================================================
-// HUD & MESSAGE
-// =================================================
+// === HUD & MESSAGE ===
 function updateHUD(){
   let bossesLeft = bosses.filter(b=>!b.defeated).length;
-  document.getElementById('hud').innerText=`Health: ${player.health} | Ammo: ${player.ammo} | Bosses: ${bossesLeft} | Round: ${round}`;
+  let minibossesLeft = minibosses.filter(b=>!b.defeated).length;
+  document.getElementById('hud').innerText=
+    `Health: ${player.health} | Ammo: ${player.ammo} | Bosses: ${bossesLeft} | Minibosses: ${minibossesLeft} | Round: ${round}`;
 }
 function showMessage(msg){
   document.getElementById('message').innerText=msg;
   setTimeout(()=>{document.getElementById('message').innerText='';},2000);
 }
 
-// =================================================
-// ROUND SYSTEM
-// =================================================
+// === ROUND SYSTEM ===
 function checkRound(){
-  if(bosses.every(b=>b.defeated)){
+  if(bosses.every(b=>b.defeated) && minibosses.every(b=>b.defeated)){
     round++;
-    bosses = [];
-    for(let i=0;i<round;i++){
-      bosses.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), health:100+round*50, defeated:false, color:'#f00'});
-    }
-    weapons = [];
-    for(let i=0;i<round+1;i++){
-      weapons.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), type:'Pistol'});
-    }
-    showMessage(`Round ${round} started!`);
+    spawnNewRound(round);
   }
 }
 
-// =================================================
-// GAME LOOP
-// =================================================
+function spawnNewRound(r){
+  for(let i=0;i<20;i++){
+    bosses[i] = {x:Math.floor(Math.random()*tileCols),y:Math.floor(Math.random()*tileRows),
+      health:100+50*r,defeated:false,color:'#'+Math.floor(Math.random()*16777215).toString(16)};
+  }
+  for(let i=0;i<30;i++){
+    minibosses[i]={x:Math.floor(Math.random()*tileCols),y:Math.floor(Math.random()*tileRows),
+      health:50+30*r,defeated:false,color:'#'+Math.floor(Math.random()*16777215).toString(16),
+      dirX:Math.random()>0.5?1:-1,dirY:Math.random()>0.5?1:-1};
+  }
+  weapons = [];
+  for(let i=0;i<50;i++){
+    weapons.push({
+      x:Math.floor(Math.random()*tileCols),
+      y:Math.floor(Math.random()*tileRows),
+      type:['Pistol','Shotgun','Rifle','LaserGun','Grenade'][Math.floor(Math.random()*5)],
+      ammo:Math.floor(Math.random()*5+1)
+    });
+  }
+  showMessage(`Round ${r} started!`);
+}
+
+// === GAME LOOP ===
 function draw(){
   ctx.clearRect(0,0,width,height);
   drawMap();
   drawWeapons();
   drawBosses();
+  drawMinibosses();
   drawPlayer();
   drawParticles();
 }
