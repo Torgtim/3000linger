@@ -3,155 +3,211 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Explorer Adventure Kaos Mobile</title>
+<title>Explorer Chaos Mobile</title>
 <style>
-body { margin:0; overflow:hidden; background:#111; font-family:Arial; touch-action: none; }
+body { margin:0; overflow:hidden; background:#111; font-family:Arial; touch-action:none; }
 canvas { display:block; margin:0 auto; background:#222; }
 #hud { position:absolute; top:10px; left:10px; color:white; font-size:18px; }
-#message { position:absolute; bottom:80px; left:10px; color:yellow; font-size:20px; }
-#joystick { position:absolute; bottom:10px; left:10px; width:100px; height:100px; background:rgba(255,255,255,0.1); border-radius:50%; touch-action:none; }
-#stick { position:absolute; left:25px; top:25px; width:50px; height:50px; background:rgba(255,255,255,0.5); border-radius:50%; }
-#shootBtn { position:absolute; bottom:10px; right:10px; width:80px; height:80px; background:red; border-radius:50%; opacity:0.6; }
+#message { position:absolute; bottom:90px; left:10px; color:yellow; font-size:18px; }
+
+#joystick { position:absolute; bottom:10px; left:10px; width:110px; height:110px; background:rgba(255,255,255,0.08); border-radius:50%; }
+#stick { position:absolute; left:35px; top:35px; width:40px; height:40px; background:rgba(255,255,255,0.5); border-radius:50%; }
+
+#shootBtn { position:absolute; bottom:10px; right:10px; width:85px; height:85px; background:red; border-radius:50%; opacity:0.7; }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
+
+<canvas id="game"></canvas>
 <div id="hud"></div>
 <div id="message"></div>
+
 <div id="joystick"><div id="stick"></div></div>
 <div id="shootBtn"></div>
+
 <script>
-// ================= GLOBAL =================
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let width = window.innerWidth;
-let height = window.innerHeight;
-canvas.width = width;
-canvas.height = height;
+// ===== CANVAS =====
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-const tileCols = 20;
-const tileRows = 40;
-const tileSize = Math.floor(width/tileCols);
+const COLS = 20;
+const ROWS = 40;
+const TILE = Math.floor(canvas.width / COLS);
 
-let frame=0;
+// ===== PLAYER =====
+let player = {
+  x: 10,
+  y: 38,
+  hp: 100,
+  size: TILE-10,
+  speed: 0.08,   // << mindre sensitiv bevegelse
+};
 
-// ================= PLAYER =================
-let player = {x:10, y:38, size:tileSize-10, color:'#0f0', health:100, ammo:10, speed:0.2, attacking:false};
-
-// ================= WEAPONS =================
-let weapons=[];
-for(let i=0;i<20;i++){
-  weapons.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), type:'Gun', ammo:5});
-}
-
-// ================= BOSSES =================
-let bosses=[];
-for(let i=0;i<5;i++){
-  bosses.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), health:100, color:'#f00', defeated:false});
-}
-
-// ================= MINIBOSSES =================
-let minibosses=[];
-for(let i=0;i<10;i++){
-  minibosses.push({x:Math.floor(Math.random()*tileCols), y:Math.floor(Math.random()*tileRows), health:50, color:'#ffa500', defeated:false, dirX:Math.random()>0.5?1:-1, dirY:Math.random()>0.5?1:-1});
-}
-
-// ================= PARTICLES =================
-let particles=[];
-
-// ================= TOUCH / JOYSTICK =================
-let stick = document.getElementById('stick');
-let joystick = document.getElementById('joystick');
-let shootBtn = document.getElementById('shootBtn');
-
+// ===== INPUT =====
 let moveX=0, moveY=0;
-let attacking=false;
+let shooting=false;
 
-function handleJoystickStart(e){
+// ===== JOYSTICK =====
+const joy = document.getElementById("joystick");
+const stick = document.getElementById("stick");
+
+joy.addEventListener("touchmove", e=>{
   e.preventDefault();
-}
-function handleJoystickMove(e){
-  e.preventDefault();
-  let touch = e.touches[0];
-  let rect = joystick.getBoundingClientRect();
-  let dx = touch.clientX - (rect.left + rect.width/2);
-  let dy = touch.clientY - (rect.top + rect.height/2);
-  let dist = Math.min(Math.sqrt(dx*dx + dy*dy), rect.width/2);
-  let angle = Math.atan2(dy, dx);
-  moveX = Math.cos(angle)*(dist/(rect.width/2));
-  moveY = Math.sin(angle)*(dist/(rect.height/2));
-  stick.style.left = (rect.width/2 - stick.offsetWidth/2 + dx/2)+'px';
-  stick.style.top = (rect.height/2 - stick.offsetHeight/2 + dy/2)+'px';
-}
-function handleJoystickEnd(e){
-  e.preventDefault();
+  const t = e.touches[0];
+  const rect = joy.getBoundingClientRect();
+  let dx = t.clientX - (rect.left + rect.width/2);
+  let dy = t.clientY - (rect.top + rect.height/2);
+  let dist = Math.min(Math.sqrt(dx*dx+dy*dy), rect.width/2);
+
+  let angle = Math.atan2(dy,dx);
+
+  // mindre sensitiv
+  moveX = Math.cos(angle)*(dist/rect.width)*2;
+  moveY = Math.sin(angle)*(dist/rect.height)*2;
+
+  stick.style.left = (35 + dx/2)+"px";
+  stick.style.top = (35 + dy/2)+"px";
+});
+
+joy.addEventListener("touchend", ()=>{
   moveX=0; moveY=0;
-  stick.style.left = '25px';
-  stick.style.top = '25px';
+  stick.style.left="35px";
+  stick.style.top="35px";
+});
+
+// ===== SHOOT =====
+document.getElementById("shootBtn").addEventListener("touchstart", ()=>shooting=true);
+document.getElementById("shootBtn").addEventListener("touchend", ()=>shooting=false);
+
+// ===== ENEMIES =====
+let enemies=[];
+for(let i=0;i<10;i++){
+  enemies.push({
+    x:Math.random()*COLS,
+    y:Math.random()*ROWS,
+    hp:50,
+    type:"mini"
+  });
 }
 
-joystick.addEventListener('touchstart', handleJoystickStart);
-joystick.addEventListener('touchmove', handleJoystickMove);
-joystick.addEventListener('touchend', handleJoystickEnd);
+// Boss
+let boss = {x:10, y:5, hp:200};
 
-// ================= SHOOT BUTTON =================
-shootBtn.addEventListener('touchstart',()=>{attacking=true;});
-shootBtn.addEventListener('touchend',()=>{attacking=false;});
+// ===== PARTICLES =====
+let particles=[];
+function explode(x,y,color){
+  for(let i=0;i<20;i++){
+    particles.push({
+      x:x, y:y,
+      vx:(Math.random()-0.5)*3,
+      vy:(Math.random()-0.5)*3,
+      life:30,
+      c:color
+    });
+  }
+}
 
-// ================= DRAW FUNCTIONS =================
-function drawMap(){ctx.strokeStyle='#555';for(let i=0;i<tileCols;i++){for(let j=0;j<tileRows;j++){ctx.strokeRect(i*tileSize,j*tileSize,tileSize,tileSize);}}}
-function drawPlayer(){ctx.fillStyle=player.color; ctx.fillRect(player.x*tileSize+5, player.y*tileSize+5, player.size, player.size);}
-function drawWeapons(){weapons.forEach(w=>{ctx.fillStyle='yellow'; ctx.fillRect(w.x*tileSize+tileSize/4, w.y*tileSize+tileSize/4, tileSize/2, tileSize/2);});}
-function drawBosses(){bosses.forEach(b=>{if(!b.defeated){ctx.fillStyle=b.color; ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);}});}
-function drawMinibosses(){minibosses.forEach(b=>{if(!b.defeated){ctx.fillStyle=b.color; ctx.fillRect(b.x*tileSize+5,b.y*tileSize+5,tileSize-10,tileSize-10);}});}
-function drawParticles(){particles.forEach((p,i)=>{ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,p.size,p.size);p.x+=p.speedX;p.y+=p.speedY;p.life--; if(p.life<=0) particles.splice(i,1);});}
+// ===== UPDATE =====
+function update(){
 
-// ================= PARTICLES =================
-function spawnParticles(x,y,count,color){for(let i=0;i<count;i++){particles.push({x:x,y:y,size:Math.random()*5+2,color:color,speedX:(Math.random()-0.5)*2,speedY:(Math.random()-0.5)*2,life:30+Math.random()*30});}}
+  // move player
+  player.x += moveX*player.speed*60;
+  player.y += moveY*player.speed*60;
 
-// ================= PLAYER UPDATE =================
-function updatePlayer(){
-  player.x += moveX;
-  player.y += moveY;
-  if(player.x<0) player.x=0;
-  if(player.x>tileCols-1) player.x=tileCols-1;
-  if(player.y<0) player.y=0;
-  if(player.y>tileRows-1) player.y=tileRows-1;
+  player.x = Math.max(0, Math.min(COLS-1, player.x));
+  player.y = Math.max(0, Math.min(ROWS-1, player.y));
 
-  // Pick weapons
-  weapons.forEach((w,i)=>{if(Math.floor(player.x)===w.x && Math.floor(player.y)===w.y){player.ammo+=w.ammo; weapons.splice(i,1); showMessage('Picked ammo!'); spawnParticles(player.x*tileSize,player.y*tileSize,10,'yellow');}});
+  // shooting
+  if(shooting){
+    enemies.forEach(e=>{
+      if(Math.abs(e.x-player.x)<1 && Math.abs(e.y-player.y)<1){
+        e.hp -= 1;
+        explode(e.x*TILE, e.y*TILE, "orange");
+      }
+    });
 
-  // Attack
-  if(attacking){
-    bosses.forEach(b=>{if(!b.defeated && Math.abs(player.x-b.x)<=1 && Math.abs(player.y-b.y)<=1){b.health-=25;spawnParticles(b.x*tileSize,b.y*tileSize,10,'red'); if(b.health<=0){b.defeated=true; showMessage('Boss defeated!');}}});
-    minibosses.forEach(b=>{if(!b.defeated && Math.abs(player.x-b.x)<=1 && Math.abs(player.y-b.y)<=1){b.health-=25;spawnParticles(b.x*tileSize,b.y*tileSize,10,'orange'); if(b.health<=0){b.defeated=true; showMessage('Miniboss defeated!');}}});
+    if(Math.abs(boss.x-player.x)<1.5 && Math.abs(boss.y-player.y)<1.5){
+      boss.hp -= 1;
+      explode(boss.x*TILE, boss.y*TILE, "red");
+    }
   }
 
-  // Move minibosses
-  minibosses.forEach(b=>{if(!b.defeated){b.x+=0.05*b.dirX; b.y+=0.05*b.dirY; if(b.x<0||b.x>tileCols-1)b.dirX*=-1;if(b.y<0||b.y>tileRows-1)b.dirY*=-1;}});
+  // enemies attack YOU
+  enemies.forEach(e=>{
+    if(e.hp>0 && Math.abs(e.x-player.x)<0.7 && Math.abs(e.y-player.y)<0.7){
+      player.hp -= 0.1;
+    }
+  });
+
+  if(Math.abs(boss.x-player.x)<1.2 && Math.abs(boss.y-player.y)<1.2){
+    player.hp -= 0.2;
+  }
+
+  // particles
+  particles.forEach((p,i)=>{
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.life--;
+    if(p.life<=0) particles.splice(i,1);
+  });
 }
 
-// ================= HUD =================
-function updateHUD(){document.getElementById('hud').innerText=`Health:${player.health} Ammo:${player.ammo}`;}
-function showMessage(msg){document.getElementById('message').innerText=msg; setTimeout(()=>{document.getElementById('message').innerText='';},1500);}
-
-// ================= DRAW =================
+// ===== DRAW =====
 function draw(){
-  ctx.clearRect(0,0,width,height);
-  drawMap();
-  drawWeapons();
-  drawBosses();
-  drawMinibosses();
-  drawPlayer();
-  drawParticles();
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // grid
+  ctx.strokeStyle="#333";
+  for(let x=0;x<COLS;x++)
+    for(let y=0;y<ROWS;y++)
+      ctx.strokeRect(x*TILE,y*TILE,TILE,TILE);
+
+  // player
+  ctx.fillStyle="lime";
+  ctx.fillRect(player.x*TILE+5, player.y*TILE+5, player.size, player.size);
+
+  // enemies
+  enemies.forEach(e=>{
+    if(e.hp>0){
+      ctx.fillStyle="orange";
+      ctx.fillRect(e.x*TILE+10,e.y*TILE+10,TILE-20,TILE-20);
+    }
+  });
+
+  // boss
+  if(boss.hp>0){
+    ctx.fillStyle="red";
+    ctx.fillRect(boss.x*TILE+5,boss.y*TILE+5,TILE-10,TILE-10);
+  }
+
+  // particles
+  particles.forEach(p=>{
+    ctx.fillStyle=p.c;
+    ctx.fillRect(p.x,p.y,3,3);
+  });
+
+  // HUD
+  document.getElementById("hud").innerText =
+    "HP: "+Math.max(0,Math.floor(player.hp))+
+    " | Boss HP: "+Math.max(0,Math.floor(boss.hp));
 }
 
-// ================= LOOP =================
+// ===== LOOP =====
 function loop(){
-  frame++;
-  updatePlayer();
-  updateHUD();
+  update();
   draw();
+
+  if(player.hp<=0){
+    document.getElementById("message").innerText="💀 YOU DIED";
+    return;
+  }
+  if(boss.hp<=0){
+    document.getElementById("message").innerText="🏆 BOSS DEFEATED!";
+  }
+
   requestAnimationFrame(loop);
 }
 loop();
