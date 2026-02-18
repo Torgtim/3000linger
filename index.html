@@ -3,12 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ULTRA Weapons</title>
+<title>MEGA FINAL</title>
 <style>
 body{margin:0;overflow:hidden;background:#000;font-family:Arial;touch-action:none}
 canvas{display:block;background:#111}
 #hud{position:absolute;top:10px;left:10px;color:#fff}
-#msg{position:absolute;bottom:100px;left:10px;color:yellow}
+#msg{position:absolute;bottom:120px;left:10px;color:yellow;font-size:18px}
+#restart{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+padding:15px 30px;background:red;color:white;font-size:20px;display:none}
 
 #joy{position:absolute;bottom:10px;left:10px;width:120px;height:120px;background:#ffffff11;border-radius:50%}
 #stick{position:absolute;left:40px;top:40px;width:40px;height:40px;background:#ffffff88;border-radius:50%}
@@ -20,49 +22,65 @@ canvas{display:block;background:#111}
 <canvas id="c"></canvas>
 <div id="hud"></div>
 <div id="msg"></div>
+<button id="restart">RESTART</button>
 
 <div id="joy"><div id="stick"></div></div>
 <div id="shoot"></div>
 
 <script>
-// ===== CANVAS =====
 const c=document.getElementById("c");
 const x=c.getContext("2d");
 c.width=innerWidth;
 c.height=innerHeight;
 
-let camX=0,camY=0,shake=0;
+let gameOver=false;
 
 // ===== PLAYER =====
-let p={
-x:500,y:1200,
-hp:100,
-weapon:0,
-ammo:[60,25,10] // pistol, shotgun, laser
-};
+let p;
+function resetPlayer(){
+p={x:500,y:1000,hp:100,weapon:0,ammo:[60,20,5],inv:[]};
+}
+resetPlayer();
 
-// ===== BUILDINGS =====
+// ===== BUILDINGS + DOORS =====
 let buildings=[];
-for(let i=0;i<20;i++){
-buildings.push({
-x:Math.random()*2000,
-y:Math.random()*2000,
-w:120+Math.random()*120,
-h:120+Math.random()*120
-});
+for(let i=0;i<6;i++){
+let bx=Math.random()*1800;
+let by=Math.random()*1800;
+buildings.push({x:bx,y:by,w:200,h:200,doorX:bx+90,doorY:by+200});
 }
 
-// ===== AMMO PICKUPS =====
-let ammoDrops=[];
-for(let i=0;i<20;i++){
-ammoDrops.push({
-x:Math.random()*2000,
-y:Math.random()*2000,
-type:Math.floor(Math.random()*3)
-});
+// ===== ENEMIES =====
+let enemies=[];
+for(let i=0;i<12;i++){
+enemies.push({x:Math.random()*2000,y:Math.random()*2000,hp:40});
 }
 
-// ===== JOYSTICK =====
+// ===== SHOOTER ENEMIES =====
+let shooters=[];
+for(let i=0;i<6;i++){
+shooters.push({x:Math.random()*2000,y:Math.random()*2000,hp:30});
+}
+
+// ===== BOSS =====
+let boss={x:900,y:200,hp:500};
+
+// ===== BULLETS =====
+let bullets=[],enemyBullets=[];
+
+function fire(){
+if(p.ammo[p.weapon]<=0) return;
+p.ammo[p.weapon]--;
+
+if(p.weapon==0) bullets.push({x:p.x,y:p.y,vx:0,vy:-10,d:15});
+if(p.weapon==1){
+for(let a=-0.3;a<=0.3;a+=0.3)
+bullets.push({x:p.x,y:p.y,vx:Math.sin(a)*8,vy:-8,d:10});
+}
+if(p.weapon==2) bullets.push({x:p.x,y:p.y,vx:0,vy:-18,d:35});
+}
+
+// ===== INPUT =====
 let mx=0,my=0,shoot=false;
 const joy=document.getElementById("joy");
 const stick=document.getElementById("stick");
@@ -82,118 +100,68 @@ joy.addEventListener("touchend",()=>{mx=my=0;stick.style.left="40px";stick.style
 document.getElementById("shoot").ontouchstart=()=>shoot=true;
 document.getElementById("shoot").ontouchend=()=>shoot=false;
 
-// ===== ENEMIES =====
-let enemies=[];
-for(let i=0;i<15;i++){
-enemies.push({x:Math.random()*2000,y:Math.random()*2000,hp:40});
-}
-
-// ===== BOSS =====
-let boss={x:800,y:200,hp:400};
-
-// ===== BULLETS =====
-let bullets=[];
-function fire(){
-if(p.ammo[p.weapon]<=0) return;
-
-p.ammo[p.weapon]--;
-
-if(p.weapon==0){ // pistol
-bullets.push({x:p.x,y:p.y,vx:0,vy:-10,d:15});
-}
-if(p.weapon==1){ // shotgun
-for(let a=-0.4;a<=0.4;a+=0.4){
-bullets.push({x:p.x,y:p.y,vx:Math.sin(a)*8,vy:-8,d:10});
-}
-}
-if(p.weapon==2){ // laser
-bullets.push({x:p.x,y:p.y,vx:0,vy:-18,d:30});
-}
-}
-
-// ===== COLLISION BUILDINGS =====
-function collide(nx,ny){
-for(let b of buildings){
-if(nx>b.x && nx<b.x+b.w && ny>b.y && ny<b.y+b.h) return true;
-}
-return false;
-}
-
 // ===== UPDATE =====
 function update(){
+if(gameOver) return;
 
 // movement
-let nx=p.x+(mx*3);
-let ny=p.y+(my*3);
-if(!collide(nx,p.y)) p.x=nx;
-if(!collide(p.x,ny)) p.y=ny;
-
-camX=p.x-c.width/2;
-camY=p.y-c.height/2;
+p.x+=mx*3;
+p.y+=my*3;
 
 // shooting
-if(shoot && Math.random()<0.35) fire();
+if(shoot && Math.random()<0.4) fire();
 
-// bullets
+// player bullets
 bullets.forEach((b,i)=>{
-b.x+=b.vx;
-b.y+=b.vy;
-
-// hit enemies
-enemies.forEach(e=>{
-if(e.hp>0 && Math.hypot(e.x-b.x,e.y-b.y)<20){
-e.hp-=b.d;
-shake=6;
-}
+b.x+=b.vx; b.y+=b.vy;
+enemies.forEach(e=>{if(e.hp>0 && Math.hypot(e.x-b.x,e.y-b.y)<20)e.hp-=b.d});
+shooters.forEach(s=>{if(s.hp>0 && Math.hypot(s.x-b.x,s.y-b.y)<20)s.hp-=b.d});
+if(Math.hypot(boss.x-b.x,boss.y-b.y)<30) boss.hp-=b.d;
 });
 
-// hit boss
-if(Math.hypot(boss.x-b.x,boss.y-b.y)<30){
-boss.hp-=b.d;
-shake=8;
-}
-});
-
-// enemies chase + damage
+// melee enemies
 enemies.forEach(e=>{
 if(e.hp<=0) return;
 let dx=p.x-e.x,dy=p.y-e.y,d=Math.hypot(dx,dy);
-e.x+=dx/d*1.1;
-e.y+=dy/d*1.1;
-if(d<25) p.hp-=0.15;
+e.x+=dx/d*1.1; e.y+=dy/d*1.1;
+if(d<25) p.hp-=0.2;
 });
 
-// boss chase
-let dx=p.x-boss.x,dy=p.y-boss.y,d=Math.hypot(dx,dy);
-boss.x+=dx/d*0.7;
-boss.y+=dy/d*0.7;
-if(d<45) p.hp-=0.25;
-
-// pickup ammo
-ammoDrops.forEach((a,i)=>{
-if(Math.hypot(p.x-a.x,p.y-a.y)<25){
-p.ammo[a.type]+=15;
-ammoDrops.splice(i,1);
+// shooter enemies
+shooters.forEach(s=>{
+if(s.hp<=0) return;
+if(Math.random()<0.02){
+let dx=p.x-s.x,dy=p.y-s.y,d=Math.hypot(dx,dy);
+enemyBullets.push({x:s.x,y:s.y,vx:dx/d*6,vy:dy/d*6});
 }
 });
 
-if(shake>0) shake*=0.9;
+// enemy bullets
+enemyBullets.forEach((b,i)=>{
+b.x+=b.vx; b.y+=b.vy;
+if(Math.hypot(p.x-b.x,p.y-b.y)<15) p.hp-=0.4;
+});
+
+// boss
+let dx=p.x-boss.x,dy=p.y-boss.y,d=Math.hypot(dx,dy);
+boss.x+=dx/d*0.8; boss.y+=dy/d*0.8;
+if(d<45) p.hp-=0.3;
+
+// death
+if(p.hp<=0){
+gameOver=true;
+document.getElementById("msg").innerText="💀 YOU DIED";
+document.getElementById("restart").style.display="block";
+}
 }
 
 // ===== DRAW =====
 function draw(){
-let sx=(Math.random()-0.5)*shake;
-let sy=(Math.random()-0.5)*shake;
-x.setTransform(1,0,0,1,-camX+sx,-camY+sy);
-x.clearRect(camX,camY,c.width,c.height);
+x.clearRect(0,0,c.width,c.height);
 
 // buildings
 x.fillStyle="#444";
 buildings.forEach(b=>x.fillRect(b.x,b.y,b.w,b.h));
-
-// ammo drops
-x.fillStyle="cyan";
-ammoDrops.forEach(a=>x.fillRect(a.x-6,a.y-6,12,12));
 
 // player
 x.fillStyle="lime";
@@ -203,6 +171,10 @@ x.fillRect(p.x-15,p.y-15,30,30);
 x.fillStyle="orange";
 enemies.forEach(e=>{if(e.hp>0)x.fillRect(e.x-10,e.y-10,20,20)});
 
+// shooters
+x.fillStyle="purple";
+shooters.forEach(s=>{if(s.hp>0)x.fillRect(s.x-10,s.y-10,20,20)});
+
 // boss
 x.fillStyle="red";
 x.fillRect(boss.x-20,boss.y-20,40,40);
@@ -210,15 +182,12 @@ x.fillRect(boss.x-20,boss.y-20,40,40);
 // bullets
 x.fillStyle="yellow";
 bullets.forEach(b=>x.fillRect(b.x-2,b.y-6,4,10));
+x.fillStyle="cyan";
+enemyBullets.forEach(b=>x.fillRect(b.x-2,b.y-6,4,10));
 
 // HUD
 document.getElementById("hud").innerText=
-"HP:"+Math.floor(p.hp)+
-" | Ammo P:"+p.ammo[0]+" S:"+p.ammo[1]+" L:"+p.ammo[2]+
-" | Weapon:"+["Pistol","Shotgun","Laser"][p.weapon];
-
-if(p.hp<=0) document.getElementById("msg").innerText="💀 YOU DIED";
-if(boss.hp<=0) document.getElementById("msg").innerText="🏆 BOSS DESTROYED";
+"HP:"+Math.floor(p.hp)+" | Ammo:"+p.ammo.join(",");
 }
 
 // ===== LOOP =====
@@ -229,11 +198,16 @@ requestAnimationFrame(loop);
 }
 loop();
 
+// ===== RESTART =====
+document.getElementById("restart").onclick=()=>{
+gameOver=false;
+resetPlayer();
+document.getElementById("msg").innerText="";
+document.getElementById("restart").style.display="none";
+};
+
 // ===== SWITCH WEAPON =====
-addEventListener("dblclick",()=>{
-p.weapon=(p.weapon+1)%3;
-document.getElementById("msg").innerText="Weapon: "+["Pistol","Shotgun","Laser"][p.weapon];
-});
+addEventListener("dblclick",()=>p.weapon=(p.weapon+1)%3);
 </script>
 </body>
 </html>
